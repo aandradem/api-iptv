@@ -4,8 +4,13 @@ const app = express();
 
 app.get('/playlist.m3u', async (req, res) => {
     try {
-        // Faz a requisição na API original
-        const response = await axios.get('https://reidoscanais.si/api/canais'); // Ajuste a rota se necessário
+        // Tentamos buscar com um User-Agent para fingir ser um navegador comum
+        const response = await axios.get('https://reidoscanais.si/api/canais', {
+            headers: {
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+            }
+        });
+        
         const canais = response.data;
 
         let m3uContent = '#EXTM3U\n';
@@ -22,7 +27,11 @@ app.get('/playlist.m3u', async (req, res) => {
         res.setHeader('Content-Type', 'audio/x-mpegurl');
         res.send(m3uContent);
     } catch (error) {
-        res.status(500).send('Erro ao gerar a lista.');
+        console.error("Erro detalhado:", error.message);
+        if (error.response) {
+            console.error("Dados da resposta:", error.response.data);
+        }
+        res.status(500).send(`Erro ao gerar a lista: ${error.message}`);
     }
 });
 
