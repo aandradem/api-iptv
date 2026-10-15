@@ -1,43 +1,38 @@
 const express = require('express');
-const axios = require('axios');
 const app = express();
 
-app.get('/playlist.m3u', async (req, res) => {
-    try {
-        // Lista de slugs dos canais que deseja buscar na API deles
-        const slugs = ['globo', 'sbt', 'band', 'record']; // Pode adicionar mais slugs conforme encontrar
-        let m3uContent = '#EXTM3U\n';
-
-        for (const slug of slugs) {
-            try {
-                const response = await axios.get(`https://api.reidoscanais.si/channels/${slug}`, {
-                    headers: {
-                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
-                        'Referer': 'https://reidoscanais.si/',
-                        'Origin': 'https://reidoscanais.si'
-                    }
-                });
-
-                const canal = response.data;
-                const nome = canal.name || canal.title || slug.toUpperCase();
-                const logo = canal.logo || '';
-                const urlStream = canal.url || canal.stream_url;
-
-                if (urlStream) {
-                    m3uContent += `#EXTINF:-1 tvg-logo="${logo}" group-title="Canais Abertos",${nome}\n`;
-                    m3uContent += `${urlStream}\n`;
-                }
-            } catch (err) {
-                console.error(`Erro ao buscar o canal ${slug}:`, err.message);
-            }
+app.get('/playlist.m3u', (req, res) => {
+    // Lista fixa ou dinâmica dos seus canais favoritos
+    const canais = [
+        {
+            nome: "Globo HD",
+            grupo: "Canais Abertos",
+            logo: "https://exemplo.com/logo-globo.png",
+            url: "https://api.reidoscanais.si/channels/band"
+        },
+        {
+            nome: "SBT HD",
+            grupo: "Canais Abertos",
+            logo: "https://exemplo.com/logo-sbt.png",
+            url: "https://api.reidoscanais.si/channels/band"
+        },
+        {
+            nome: "ESPN Brasil",
+            grupo: "Esportes",
+            logo: "https://exemplo.com/logo-espn.png",
+            url: "https://api.reidoscanais.si/channels/band"
         }
+    ];
 
-        res.setHeader('Content-Type', 'audio/x-mpegurl');
-        res.send(m3uContent);
-    } catch (error) {
-        console.error("Erro geral:", error.message);
-        res.status(500).send(`Erro ao gerar a lista: ${error.message}`);
-    }
+    let m3uContent = '#EXTM3U\n';
+
+    canais.forEach(canal => {
+        m3uContent += `#EXTINF:-1 tvg-logo="${canal.logo}" group-title="${canal.grupo}",${canal.nome}\n`;
+        m3uContent += `${canal.url}\n`;
+    });
+
+    res.setHeader('Content-Type', 'audio/x-mpegurl');
+    res.send(m3uContent);
 });
 
 const PORT = process.env.PORT || 3000;
