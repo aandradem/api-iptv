@@ -4,10 +4,12 @@ const app = express();
 
 app.get('/playlist.m3u', async (req, res) => {
     try {
-        // Tentamos buscar com um User-Agent para fingir ser um navegador comum
-        const response = await axios.get('https://reidoscanais.si/api/canais', {
+        // Usando o endpoint correto descoberto no DevTools com os headers exigidos
+        const response = await axios.get('https://api.reidoscanais.si/channels', {
             headers: {
-                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'
+                'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36',
+                'Referer': 'https://reidoscanais.si/',
+                'Origin': 'https://reidoscanais.si'
             }
         });
         
@@ -15,13 +17,16 @@ app.get('/playlist.m3u', async (req, res) => {
 
         let m3uContent = '#EXTM3U\n';
 
+        // Garante que percorre a lista de canais corretamente
         canais.forEach(canal => {
-            const nome = canal.name || 'Canal';
+            const nome = canal.name || canal.title || 'Canal';
             const logo = canal.logo || '';
-            const urlStream = canal.url;
+            const urlStream = canal.url || canal.stream_url;
 
-            m3uContent += `#EXTINF:-1 tvg-logo="${logo}" group-title="Geral",${nome}\n`;
-            m3uContent += `${urlStream}\n`;
+            if (urlStream) {
+                m3uContent += `#EXTINF:-1 tvg-logo="${logo}" group-title="Geral",${nome}\n`;
+                m3uContent += `${urlStream}\n`;
+            }
         });
 
         res.setHeader('Content-Type', 'audio/x-mpegurl');
