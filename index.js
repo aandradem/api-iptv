@@ -1,40 +1,53 @@
 const express = require('express');
+const axios = require('axios');
 const app = express();
 
-app.get('/playlist.m3u', (req, res) => {
-    // Lista fixa otimizada para máxima velocidade e sem travamentos
-    const canais = [
-        // --- CANAIS ABERTOS / AO VIVO ---
-        {
-            nome: "Record HD (Live)",
-            grupo: "Canais Abertos",
-            logo: "https://upload.wikimedia.org/wikipedia/commons/9/91/Record_TV_logo_2016.svg",
-            url: "https://tiktokcdn.live/live/secure/3cysvL8WcDcMcT7NpEti_fIkx8VSCJDkssIzGB-azZk/1792118220/7c70da7dcf50cd5d/record/index.m3u8"
-        },
-        {
-            nome: "Globo HD",
-            grupo: "Canais Abertos",
-            logo: "https://upload.wikimedia.org/wikipedia/commons/7/7b/TV_Globo_logo_2021.svg",
-            url: "EXEMPLO_LINK_M3U8_AQUI"
-        },
-        {
-            nome: "SBT HD",
-            grupo: "Canais Abertos",
-            logo: "https://upload.wikimedia.org/wikipedia/commons/4/4b/SBT_logo_2022.svg",
-            url: "EXEMPLO_LINK_M3U8_AQUI"
+app.get('/playlist.m3u', async (req, res) => {
+    try {
+        // Consumindo a API oficial documentada do Rei dos Canais
+        const response = await axios.get('https://api.reidoscanais.si/channels');
+        const resultado = response.data;
+        
+        const canais = Array.isArray(resultado.data) ? resultado.data : [];
+
+        let m3uContent = '#EXTM3U\n';
+
+        if (canais.length === 0) {
+            m3uContent += '#EXTINF:-1 tvg-logo="" group-title="Aviso",Nenhum canal encontrado na API\n';
+            m3uContent += 'https://www.w3schools.com/html/mov_bbb.mp4\n';
+        } else {
+            canais.forEach(canal => {
+                const nome = canal.name || 'Canal';
+                const logo = canal.logo_url || '';
+                const grupo = canal.category || 'Geral';
+                
+                // Extrai o link de embed/stream fornecido pela API oficial
+                let urlStream = '';
+                if (canal.embeds && canal.embeds.length > 0) {
+                    urlStream = canal.embeds[0].embed_url;
+                }
+
+                if (urlStream) {
+                    m3uContent += `#EXTINF:-1 tvg-logo="${logo}" group-title="${grupo}",${nome}\n`;
+                    m3uContent += `${urlStream}\n`;
+                }
+            });
         }
-    ];
 
-    // Montagem do conteúdo no formato M3U padrão
-    let m3uContent = '#EXTM3U\n';
-
-    canais.forEach(canal => {
-        m3uContent += `#EXTINF:-1 tvg-logo="${canal.logo}" group-title="${canal.grupo}",${canal.nome}\n`;
-        m3uContent += `${canal.url}\n`;
-    });
-
-    res.setHeader('Content-Type', 'audio/x-mpegurl');
-    res.send(m3uContent);
+        // Define o cabeçalho correto para a TV/player reconhecer como lista M3U
+        res.setHeader('Content-Type', 'audio/x-mpegurl');
+        res.send(m3uContent);
+    } catch (error) {
+        console.error("Erro ao buscar a API:", error.message);
+        
+        // Fallback de segurança caso a API oficial caia temporariamente
+        let m3uFallback = '#EXTM3U\n';
+        m3uFallback += '#EXTINF:-1 tvg-logo="" group-title="Sistema",Erro ao carregar API oficial\n';
+        m3uFallback += 'https://www.w3schools.com/html/mov_bbb.mp4\n';
+        
+        res.setHeader('Content-Type', 'audio/x-mpegurl');
+        res.send(m3uFallback);
+    }
 });
 
 const PORT = process.env.PORT || 3000;
