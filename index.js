@@ -4,49 +4,56 @@ const app = express();
 
 app.get('/playlist.m3u', async (req, res) => {
     try {
-        // Consumindo a API oficial documentada do Rei dos Canais
-        const response = await axios.get('https://api.reidoscanais.si/channels');
-        const resultado = response.data;
-        
-        const canais = Array.isArray(resultado.data) ? resultado.data : [];
+        // Lista com os identificadores (slugs) exatos dos canais que queres na tua TV
+        const canaisDesejados = [
+            { slug: 'globo', nome: 'Globo SP', grupo: 'Canais Abertos' },
+            { slug: 'sbt', nome: 'SBT', grupo: 'Canais Abertos' },
+            { slug: 'record', nome: 'Record', grupo: 'Canais Abertos' },
+            { slug: 'band', nome: 'Band', grupo: 'Canais Abertos' },
+            { slug: 'sportv', nome: 'SporTV', grupo: 'Esportes' },
+            { slug: 'premiereclubes', nome: 'Premiere', grupo: 'Esportes' },
+            { slug: 'adultswim', nome: 'Adult Swim', grupo: 'Entretenimento' },
+            { slug: 'cartoonnetwork', nome: 'Cartoon Network', grupo: 'Infantil' },
+            { slug: 'hbo', nome: 'HBO', grupo: 'Filmes e Séries' },
+            { slug: 'tnt', nome: 'TNT', grupo: 'Filmes e Séries' }
+        ];
 
         let m3uContent = '#EXTM3U\n';
 
-        if (canais.length === 0) {
-            m3uContent += '#EXTINF:-1 tvg-logo="" group-title="Aviso",Nenhum canal encontrado na API\n';
-            m3uContent += 'https://www.w3schools.com/html/mov_bbb.mp4\n';
-        } else {
-            canais.forEach(canal => {
-                const nome = canal.name || 'Canal';
+        for (const item of canaisDesejados) {
+            try {
+                // Consulta o endpoint específico de cada canal na API oficial
+                const response = await axios.get(`https://api.reidoscanais.si/channels/${item.slug}`, {
+                    headers: {
+                        'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36',
+                        'Referer': 'https://reidoscanais.si/',
+                        'Origin': 'https://reidoscanais.si'
+                    }
+                });
+
+                const canal = response.data;
                 const logo = canal.logo_url || '';
-                const grupo = canal.category || 'Geral';
                 
-                // Extrai o link de embed/stream fornecido pela API oficial
+                // Extrai o link do embed correspondente
                 let urlStream = '';
                 if (canal.embeds && canal.embeds.length > 0) {
                     urlStream = canal.embeds[0].embed_url;
                 }
 
                 if (urlStream) {
-                    m3uContent += `#EXTINF:-1 tvg-logo="${logo}" group-title="${grupo}",${nome}\n`;
+                    m3uContent += `#EXTINF:-1 tvg-logo="${logo}" group-title="${item.grupo}",${item.nome}\n`;
                     m3uContent += `${urlStream}\n`;
                 }
-            });
+            } catch (err) {
+                console.error(`Erro ao buscar o canal ${item.slug}:`, err.message);
+            }
         }
 
-        // Define o cabeçalho correto para a TV/player reconhecer como lista M3U
         res.setHeader('Content-Type', 'audio/x-mpegurl');
         res.send(m3uContent);
     } catch (error) {
-        console.error("Erro ao buscar a API:", error.message);
-        
-        // Fallback de segurança caso a API oficial caia temporariamente
-        let m3uFallback = '#EXTM3U\n';
-        m3uFallback += '#EXTINF:-1 tvg-logo="" group-title="Sistema",Erro ao carregar API oficial\n';
-        m3uFallback += 'https://www.w3schools.com/html/mov_bbb.mp4\n';
-        
-        res.setHeader('Content-Type', 'audio/x-mpegurl');
-        res.send(m3uFallback);
+        console.error("Erro geral:", error.message);
+        res.status(500).send('Erro ao gerar a lista.');
     }
 });
 
